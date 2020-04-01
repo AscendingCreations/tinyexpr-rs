@@ -2,8 +2,8 @@
 
 use std::error::Error;
 use std::fmt;
-use std::result;
 use std::num::ParseFloatError;
+use std::result;
 
 /// Result type used throughout the crate.
 pub type Result<T> = result::Result<T, TinyExprError>;
@@ -14,14 +14,14 @@ pub enum TinyExprError {
     /// Parse error
     Parse(ParseFloatError),
     /// Any other kind of error
-    Other(String)
+    Other(String),
 }
 
 impl fmt::Display for TinyExprError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TinyExprError::Parse(ref err) => err.fmt(f),
-            TinyExprError::Other(ref err) => err.fmt(f)
+            TinyExprError::Other(ref err) => err.fmt(f),
         }
     }
 }
@@ -30,7 +30,7 @@ impl Error for TinyExprError {
     fn description(&self) -> &str {
         match *self {
             TinyExprError::Parse(ref err) => err.description(),
-            TinyExprError::Other(ref err) => err
+            TinyExprError::Other(ref err) => err,
         }
     }
 }
