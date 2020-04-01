@@ -70,21 +70,21 @@ macro_rules! type_mask {
     };
 }
 
-#[allow(dead_code)]
+#[allow(unused_macros)]
 macro_rules! is_pure {
     ($x:expr) => {
         ($x & Flags::TE_FLAG_PURE).bits() != 0
     };
 }
 
-#[allow(dead_code)]
+#[allow(unused_macros)]
 macro_rules! is_function {
     ($x:expr) => {
         ($x & Flags::TE_FUNCTION0).bits() != 0
     };
 }
 
-#[allow(dead_code)]
+#[allow(unused_macros)]
 macro_rules! is_closure {
     ($x:expr) => {
         ($x & Flags::TE_CLOSURE0).bits() != 0

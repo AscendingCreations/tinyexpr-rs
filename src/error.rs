@@ -26,6 +26,7 @@ impl fmt::Display for TinyExprError {
     }
 }
 
+#[allow(deprecated)]
 impl Error for TinyExprError {
     fn description(&self) -> &str {
         match *self {
