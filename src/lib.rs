@@ -102,11 +102,12 @@ macro_rules! arity {
 }
 
 // todo: introduce a Function struct to accomodate different arg numbers and ret values?
-const FUNCTIONS: [&'static str; 23] = [
+const FUNCTIONS: [&'static str; 24] = [
     "abs", "acos", "asin", "atan", "atan2", "ceil", "cos", "cosh", "e", "exp", "floor", "ln",
-    "log", "log10", "pi", "pow", "rand01", "randint", "sin", "sinh", "sqrt", "tan", "tanh",
+    "log", "log10", "pi", "pow", "rand01", "randint", "round", "sin", "sinh", "sqrt", "tan",
+    "tanh",
 ];
-const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 23] = [
+const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 24] = [
     (abs, Flags::TE_FUNCTION1),
     (acos, Flags::TE_FUNCTION1),
     (asin, Flags::TE_FUNCTION1),
@@ -125,6 +126,7 @@ const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 23] = [
     (pow, Flags::TE_FUNCTION2),
     (rand01, Flags::TE_FUNCTION0),
     (randint, Flags::TE_FUNCTION2),
+    (round, Flags::TE_FUNCTION1),
     (sin, Flags::TE_FUNCTION1),
     (sinh, Flags::TE_FUNCTION1),
     (sqrt, Flags::TE_FUNCTION1),
@@ -212,6 +214,9 @@ fn rand01(_: f64, _: f64) -> f64 {
 fn randint(a: f64, b: f64) -> f64 {
     let mut rng = rand::thread_rng();
     rng.gen_range(a, b)
+}
+fn round(a: f64, _: f64) -> f64 {
+    a.round()
 }
 fn sin(a: f64, _: f64) -> f64 {
     a.sin()
