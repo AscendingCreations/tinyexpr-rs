@@ -389,7 +389,7 @@ fn next_token(s: &mut State) -> Result<String> {
                 let mut txt_str = String::new();
                 let mut c = next_char;
 
-                while s.n_idx < s.next.len() && (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+                while s.n_idx < s.next.len() && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
                     txt_str.push(c);
                     s.n_idx += 1;
                     if s.n_idx < s.next.len() {
