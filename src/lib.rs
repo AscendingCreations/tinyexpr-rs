@@ -104,7 +104,7 @@ macro_rules! arity {
 // todo: introduce a Function struct to accomodate different arg numbers and ret values?
 const FUNCTIONS: [&'static str; 23] = [
     "abs", "acos", "asin", "atan", "atan2", "ceil", "cos", "cosh", "e", "exp", "floor", "ln",
-    "log", "log10", "pi", "pow", "sin", "sinh", "sqrt", "tan", "tanh", "rand01", "randint",
+    "log", "log10", "pi", "pow", "rand01", "randint", "sin", "sinh", "sqrt", "tan", "tanh",
 ];
 const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 23] = [
     (abs, Flags::TE_FUNCTION1),
@@ -123,13 +123,13 @@ const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 23] = [
     (log10, Flags::TE_FUNCTION1),
     (pi, Flags::TE_FUNCTION0),
     (pow, Flags::TE_FUNCTION2),
+    (rand01, Flags::TE_FUNCTION0),
+    (randint, Flags::TE_FUNCTION2),
     (sin, Flags::TE_FUNCTION1),
     (sinh, Flags::TE_FUNCTION1),
     (sqrt, Flags::TE_FUNCTION1),
     (tan, Flags::TE_FUNCTION1),
     (tanh, Flags::TE_FUNCTION1),
-    (rand01, Flags::TE_FUNCTION0),
-    (randint, Flags::TE_FUNCTION2),
 ];
 
 fn dummy(_: f64, _: f64) -> f64 {
