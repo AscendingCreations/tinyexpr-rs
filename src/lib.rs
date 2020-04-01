@@ -205,6 +205,14 @@ fn pi(_: f64, _: f64) -> f64 {
 fn pow(a: f64, b: f64) -> f64 {
     a.powf(b)
 }
+fn rand01(_: f64, _: f64) -> f64 {
+    let mut rng = rand::thread_rng();
+    rng.gen()
+}
+fn randint(a: f64, b: f64) -> f64 {
+    let mut rng = rand::thread_rng();
+    rng.gen_range(a, b)
+}
 fn sin(a: f64, _: f64) -> f64 {
     a.sin()
 }
@@ -220,14 +228,7 @@ fn tan(a: f64, _: f64) -> f64 {
 fn tanh(a: f64, _: f64) -> f64 {
     a.tanh()
 }
-fn randint(a: f64, b: f64) -> f64 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(a, b)
-}
-fn rand01(_: f64, _: f64) -> f64 {
-    let mut rng = rand::thread_rng();
-    rng.gen()
-}
+
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct Expr {
