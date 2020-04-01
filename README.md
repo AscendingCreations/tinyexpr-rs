@@ -18,7 +18,7 @@ Usage
 ```toml
 # Cargo.toml
 [dependencies]
-tinyexpr = "0.1"
+tinyexpr = { git = "https://git.codentium.com/Genusis/tinyexpr-rs" }
 ```
 
 Example
