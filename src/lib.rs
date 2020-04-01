@@ -213,7 +213,7 @@ fn rand01(_: f64, _: f64) -> f64 {
 }
 fn randint(a: f64, b: f64) -> f64 {
     let mut rng = rand::thread_rng();
-    rng.gen_range(a, b)
+    rng.gen_range(a, b).round()
 }
 fn round(a: f64, _: f64) -> f64 {
     a.round()
@@ -379,11 +379,13 @@ fn next_token(s: &mut State) -> Result<String> {
             let mut c = next_char;
 
             // extract the number part to separate string which we then convert to f64
-            while s.n_idx < s.next.len() && (c >= '0' && c <= '9') || c == '.' {
+            while (c >= '0' && c <= '9') || c == '.' {
                 num_str.push(c);
                 s.n_idx += 1;
                 if s.n_idx < s.next.len() {
                     c = s.next.as_bytes()[s.n_idx] as char;
+                } else {
+                    break;
                 }
             }
             s.value = f64::from_str(&num_str).unwrap();
@@ -394,7 +396,7 @@ fn next_token(s: &mut State) -> Result<String> {
                 let mut txt_str = String::new();
                 let mut c = next_char;
 
-                while s.n_idx < s.next.len() && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                while ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
                     txt_str.push(c);
                     s.n_idx += 1;
                     if s.n_idx < s.next.len() {
