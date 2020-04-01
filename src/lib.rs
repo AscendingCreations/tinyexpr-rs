@@ -394,6 +394,8 @@ fn next_token(s: &mut State) -> Result<String> {
                     s.n_idx += 1;
                     if s.n_idx < s.next.len() {
                         c = s.next.as_bytes()[s.n_idx] as char;
+                    } else {
+                        break;
                     }
                 }
 
