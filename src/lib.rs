@@ -21,9 +21,11 @@
 //!```
 #[macro_use]
 extern crate bitflags;
+extern crate phf;
 extern crate rand;
 pub mod error;
 use error::Result;
+use phf::phf_map;
 use rand::prelude::*;
 use std::f64::consts;
 use std::str::FromStr;
@@ -101,42 +103,50 @@ macro_rules! arity {
     };
 }
 
-// todo: introduce a Function struct to accomodate different arg numbers and ret values?
-const FUNCTIONS: [&'static str; 24] = [
-    "abs", "acos", "asin", "atan", "atan2", "ceil", "cos", "cosh", "e", "exp", "floor", "ln",
-    "log", "log10", "pi", "pow", "rand01", "randint", "round", "sin", "sinh", "sqrt", "tan",
-    "tanh",
-];
-const FUNCTION_TYPES: [(fn(f64, f64) -> f64, Flags); 24] = [
-    (abs, Flags::TE_FUNCTION1),
-    (acos, Flags::TE_FUNCTION1),
-    (asin, Flags::TE_FUNCTION1),
-    (atan, Flags::TE_FUNCTION1),
-    (atan2, Flags::TE_FUNCTION2),
-    (ceil, Flags::TE_FUNCTION1),
-    (cos, Flags::TE_FUNCTION1),
-    (cosh, Flags::TE_FUNCTION1),
-    (e, Flags::TE_FUNCTION0),
-    (exp, Flags::TE_FUNCTION1),
-    (floor, Flags::TE_FUNCTION1),
-    (ln, Flags::TE_FUNCTION1),
-    (log, Flags::TE_FUNCTION1),
-    (log10, Flags::TE_FUNCTION1),
-    (pi, Flags::TE_FUNCTION0),
-    (pow, Flags::TE_FUNCTION2),
-    (rand01, Flags::TE_FUNCTION0),
-    (randint, Flags::TE_FUNCTION2),
-    (round, Flags::TE_FUNCTION1),
-    (sin, Flags::TE_FUNCTION1),
-    (sinh, Flags::TE_FUNCTION1),
-    (sqrt, Flags::TE_FUNCTION1),
-    (tan, Flags::TE_FUNCTION1),
-    (tanh, Flags::TE_FUNCTION1),
-];
+struct Functions {
+    fun: fn(f64, f64) -> f64,
+    flag: Flags,
+}
+
+impl Clone for Functions {
+    fn clone(&self) -> Functions {
+        Functions {
+            fun: self.fun,
+            flag: self.flag,
+        }
+    }
+}
+
+static FUNCTIONS: phf::Map<&'static str, Functions> = phf_map! {
+    "abs" => Functions{fun: abs, flag: Flags::TE_FUNCTION1},
+    "acos" => Functions{fun: acos, flag: Flags::TE_FUNCTION1},
+    "asin" => Functions{fun: asin, flag: Flags::TE_FUNCTION1},
+    "atan" => Functions{fun: atan, flag: Flags::TE_FUNCTION1},
+    "atan2" => Functions{fun: atan2, flag: Flags::TE_FUNCTION2},
+    "ceil" => Functions{fun: ceil, flag: Flags::TE_FUNCTION1},
+    "cos" => Functions{fun: cos, flag: Flags::TE_FUNCTION1},
+    "cosh" => Functions{fun: cosh, flag: Flags::TE_FUNCTION1},
+    "e" => Functions{fun: e, flag: Flags::TE_FUNCTION0},
+    "exp" => Functions{fun: exp, flag: Flags::TE_FUNCTION1},
+    "floor" => Functions{fun: floor, flag: Flags::TE_FUNCTION1},
+    "ln" => Functions{fun: ln, flag: Flags::TE_FUNCTION1},
+    "log" => Functions{fun: log, flag: Flags::TE_FUNCTION1},
+    "log10" => Functions{fun: log10, flag: Flags::TE_FUNCTION1},
+    "pi" => Functions{fun: pi, flag: Flags::TE_FUNCTION0},
+    "pow" => Functions{fun: pow, flag: Flags::TE_FUNCTION2},
+    "rand01" => Functions{fun: rand01, flag: Flags::TE_FUNCTION0},
+    "randint" => Functions{fun: randint, flag: Flags::TE_FUNCTION2},
+    "round" => Functions{fun: round, flag: Flags::TE_FUNCTION1},
+    "sin" => Functions{fun: sin, flag: Flags::TE_FUNCTION1},
+    "sinh" => Functions{fun: sinh, flag: Flags::TE_FUNCTION1},
+    "sqrt" => Functions{fun: sqrt, flag: Flags::TE_FUNCTION1},
+    "tan" => Functions{fun: tan, flag: Flags::TE_FUNCTION1},
+    "tanh" => Functions{fun: tanh, flag: Flags::TE_FUNCTION1},
+};
 
 fn dummy(_: f64, _: f64) -> f64 {
     panic!("called dummy!")
-} // todo
+}
 fn add(a: f64, b: f64) -> f64 {
     a + b
 }
@@ -158,7 +168,6 @@ fn neg(a: f64, _: f64) -> f64 {
 fn comma(_: f64, b: f64) -> f64 {
     b
 }
-// todo: this is added so that it works with current fptr... - need more types! no extra unused params!
 fn abs(a: f64, _: f64) -> f64 {
     a.abs()
 }
@@ -197,7 +206,7 @@ fn ln(a: f64, _: f64) -> f64 {
 }
 fn log(a: f64, _: f64) -> f64 {
     a.log10()
-} // todo ?
+}
 fn log10(a: f64, _: f64) -> f64 {
     a.log10()
 }
@@ -239,9 +248,9 @@ fn tanh(a: f64, _: f64) -> f64 {
 pub struct Expr {
     pub e_type: Flags,
     pub value: f64,
-    pub bound: i8, // todo: Variable?
+    pub bound: i8,
     pub function: fn(f64, f64) -> f64,
-    pub parameters: Vec<Expr>, // todo: should this be Option<>? Also, Expr&?
+    pub parameters: Vec<Expr>,
 }
 
 impl Expr {
@@ -272,7 +281,7 @@ impl Clone for Expr {
 #[derive(Debug)]
 pub struct Variable {
     pub name: String,
-    pub address: i8, // todo: this will have to go - handle variables? (no void*)
+    pub address: i8,
     pub function: fn(f64, f64) -> f64,
     pub v_type: Flags,
     pub context: Vec<Expr>,
@@ -333,7 +342,7 @@ impl State {
 fn new_expr(e_type: Flags, params: Option<Vec<Expr>>) -> Expr {
     let _arity = arity!(e_type);
     let mut ret = Expr::new();
-    // just create a new expression with new type based on old expression, no weird memcpy mumbo jumbo
+
     ret.e_type = e_type;
     ret.bound = 0;
     if let Some(params) = params {
@@ -354,20 +363,21 @@ fn find_lookup(s: &State, txt: &str) -> Option<Variable> {
 }
 
 fn find_builtin(txt: &str) -> Option<Variable> {
-    if let Ok(idx) = FUNCTIONS.binary_search(&txt) {
-        let mut v = Variable::new(txt, FUNCTION_TYPES[idx].1 | Flags::TE_FLAG_PURE);
-        v.function = FUNCTION_TYPES[idx].0;
-        return Some(v);
+    match FUNCTIONS.get(txt) {
+        Some(v) => {
+            let mut var = Variable::new(txt, v.flag | Flags::TE_FLAG_PURE);
+            var.function = v.fun;
+            return Some(var);
+        }
+        None => None,
     }
-
-    None
 }
 
 fn next_token(s: &mut State) -> Result<String> {
     s.s_type = Flags::TOK_NULL;
 
     while s.s_type == Flags::TOK_NULL {
-        if s.n_idx == s.next.len() {
+        if s.n_idx >= s.next.len() {
             s.s_type = Flags::TOK_END;
             break;
         }
@@ -396,7 +406,7 @@ fn next_token(s: &mut State) -> Result<String> {
                 let mut txt_str = String::new();
                 let mut c = next_char;
 
-                while ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                while (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
                     txt_str.push(c);
                     s.n_idx += 1;
                     if s.n_idx < s.next.len() {
@@ -520,10 +530,7 @@ fn base(s: &mut State) -> Result<Expr> {
         Flags::TE_FUNCTION0 | Flags::TE_CLOSURE0 => {
             ret = new_expr(s.s_type, None);
             ret.function = s.function;
-            // todo: set parameters
-            /*if is_closure!(s.s_type) {
-                ret.parameters[0] = s.context[0].clone();
-            }*/
+
             next_token(s).unwrap();
             // todo: set parameters
         }
@@ -698,8 +705,8 @@ fn optimize(n: &mut Expr) {
         let known = 1;
         let arity = arity!(n.e_type);
 
-        for _i in 0..arity {
-            // todo: optimize parameters
+        for i in 0..arity {
+            optimize(n.parameters.get_mut(i as usize).unwrap());
         }
 
         if known != 0 {

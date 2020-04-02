@@ -12,3 +12,4 @@ documentation = "https://docs.rs/tinyexpr"
 [dependencies]
 bitflags = "1.2.1"
 rand = "0.7.3"
+phf = { version = "0.8.0", features = ["macros"] }
