@@ -21,12 +21,14 @@
 //!```
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate derivative;
 extern crate phf;
 extern crate rand;
 pub mod error;
 use error::Result;
 use phf::phf_map;
-use rand::prelude::*;
+use rand::{thread_rng, Rng};
 use std::f64::consts;
 use std::str::FromStr;
 
@@ -103,18 +105,24 @@ macro_rules! arity {
     };
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct Functions {
     fun: fn(f64, f64) -> f64,
     flag: Flags,
 }
 
-impl Clone for Functions {
-    fn clone(&self) -> Functions {
-        Functions {
-            fun: self.fun,
-            flag: self.flag,
-        }
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Derivative)]
+#[derivative(Default)]
+pub enum FunctionType {
+    #[derivative(Default)]
+    None,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Pow,
+    Fmod,
+    Neg,
 }
 
 static FUNCTIONS: phf::Map<&'static str, Functions> = phf_map! {
@@ -221,8 +229,8 @@ fn rand01(_: f64, _: f64) -> f64 {
     rng.gen()
 }
 fn randint(a: f64, b: f64) -> f64 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(a, b).round()
+    let mut rng = thread_rng();
+    rng.gen_range(a..=b).round()
 }
 fn round(a: f64, _: f64) -> f64 {
     a.round()
@@ -244,45 +252,27 @@ fn tanh(a: f64, _: f64) -> f64 {
 }
 
 #[doc(hidden)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(Default(new = "true"))]
 pub struct Expr {
+    #[derivative(Default(value = "Flags::TOK_NULL"))]
     pub e_type: Flags,
     pub value: f64,
     pub bound: i8,
+    #[derivative(Default(value = "dummy"))]
     pub function: fn(f64, f64) -> f64,
     pub parameters: Vec<Expr>,
 }
 
-impl Expr {
-    fn new() -> Expr {
-        Expr {
-            e_type: Flags::TOK_NULL,
-            value: 0.0,
-            bound: 0,
-            function: dummy,
-            parameters: Vec::<Expr>::new(),
-        }
-    }
-}
-
-impl Clone for Expr {
-    fn clone(&self) -> Expr {
-        Expr {
-            e_type: self.e_type,
-            value: self.value,
-            bound: self.bound,
-            function: self.function,
-            parameters: self.parameters.clone(),
-        }
-    }
-}
-
 #[doc(hidden)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(Default)]
 pub struct Variable {
     pub name: String,
     pub address: i8,
+    #[derivative(Default(value = "dummy"))]
     pub function: fn(f64, f64) -> f64,
+    #[derivative(Default(value = "Flags::TOK_NULL"))]
     pub v_type: Flags,
     pub context: Vec<Expr>,
 }
@@ -291,34 +281,24 @@ impl Variable {
     fn new(name: &str, v_type: Flags) -> Variable {
         Variable {
             name: String::from(name),
-            address: 0,
-            function: dummy,
-            v_type: v_type,
-            context: Vec::<Expr>::new(),
+            v_type,
+            ..Default::default()
         }
     }
 }
 
-impl Clone for Variable {
-    fn clone(&self) -> Variable {
-        Variable {
-            name: self.name.clone(),
-            address: self.address,
-            function: self.function,
-            v_type: self.v_type,
-            context: self.context.clone(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Derivative)]
+#[derivative(Default)]
 struct State {
     pub next: String,
+    #[derivative(Default(value = "Flags::TOK_NULL"))]
     pub s_type: Flags,
     pub n_idx: usize,
     pub value: f64,
     pub bound: i8,
+    #[derivative(Default(value = "dummy"))]
     pub function: fn(f64, f64) -> f64,
+    pub function_type: FunctionType,
     pub context: Vec<Expr>,
     pub lookup: Vec<Variable>,
 }
@@ -327,13 +307,7 @@ impl State {
     fn new(expression: &str) -> State {
         State {
             next: String::from(expression),
-            s_type: Flags::TOK_NULL,
-            n_idx: 0,
-            value: 0.0,
-            bound: 0,
-            function: mul,
-            context: Vec::<Expr>::new(),
-            lookup: Vec::<Variable>::new(),
+            ..Default::default()
         }
     }
 }
@@ -367,7 +341,7 @@ fn find_builtin(txt: &str) -> Option<Variable> {
         Some(v) => {
             let mut var = Variable::new(txt, v.flag | Flags::TE_FLAG_PURE);
             var.function = v.fun;
-            return Some(var);
+            Some(var)
         }
         None => None,
     }
@@ -384,12 +358,12 @@ fn next_token(s: &mut State) -> Result<String> {
 
         let next_char = s.next.as_bytes()[s.n_idx] as char;
         // try reading a number
-        if (next_char >= '0' && next_char <= '9') || next_char == '.' {
+        if ('0'..='9').contains(&next_char) || next_char == '.' {
             let mut num_str = String::new();
             let mut c = next_char;
 
             // extract the number part to separate string which we then convert to f64
-            while (c >= '0' && c <= '9') || c == '.' {
+            while ('0'..='9').contains(&c) || c == '.' {
                 num_str.push(c);
                 s.n_idx += 1;
                 if s.n_idx < s.next.len() {
@@ -402,11 +376,11 @@ fn next_token(s: &mut State) -> Result<String> {
             s.s_type = Flags::TOK_NUMBER;
         } else {
             // look for a variable or builting function call
-            if next_char >= 'a' && next_char <= 'z' {
+            if ('a'..='z').contains(&next_char) {
                 let mut txt_str = String::new();
                 let mut c = next_char;
 
-                while (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+                while ('a'..='z').contains(&c) || ('0'..='9').contains(&c) {
                     txt_str.push(c);
                     s.n_idx += 1;
                     if s.n_idx < s.next.len() {
@@ -416,8 +390,8 @@ fn next_token(s: &mut State) -> Result<String> {
                     }
                 }
 
-                let mut var = find_lookup(&s, &txt_str);
-                if let None = var {
+                let mut var = find_lookup(s, &txt_str);
+                if var.is_none() {
                     var = find_builtin(&txt_str);
                 }
 
@@ -427,43 +401,22 @@ fn next_token(s: &mut State) -> Result<String> {
                             s.s_type = Flags::TOK_VARIABLE;
                             s.bound = v.address;
                         }
-                        Flags::TE_CLOSURE0 => s.context = v.context,
-                        Flags::TE_CLOSURE1 => s.context = v.context,
-                        Flags::TE_CLOSURE2 => s.context = v.context,
-                        Flags::TE_CLOSURE3 => s.context = v.context,
-                        Flags::TE_CLOSURE4 => s.context = v.context,
-                        Flags::TE_CLOSURE5 => s.context = v.context,
-                        Flags::TE_CLOSURE6 => s.context = v.context,
-                        Flags::TE_CLOSURE7 => s.context = v.context,
-                        Flags::TE_FUNCTION0 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION1 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION2 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION3 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION4 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION5 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION6 => {
-                            s.s_type = v.v_type;
-                            s.function = v.function;
-                        }
-                        Flags::TE_FUNCTION7 => {
+                        Flags::TE_CLOSURE0
+                        | Flags::TE_CLOSURE1
+                        | Flags::TE_CLOSURE2
+                        | Flags::TE_CLOSURE3
+                        | Flags::TE_CLOSURE4
+                        | Flags::TE_CLOSURE5
+                        | Flags::TE_CLOSURE6
+                        | Flags::TE_CLOSURE7 => s.context = v.context,
+                        Flags::TE_FUNCTION0
+                        | Flags::TE_FUNCTION1
+                        | Flags::TE_FUNCTION2
+                        | Flags::TE_FUNCTION3
+                        | Flags::TE_FUNCTION4
+                        | Flags::TE_FUNCTION5
+                        | Flags::TE_FUNCTION6
+                        | Flags::TE_FUNCTION7 => {
                             s.s_type = v.v_type;
                             s.function = v.function;
                         }
@@ -478,26 +431,32 @@ fn next_token(s: &mut State) -> Result<String> {
                     '+' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = add;
+                        s.function_type = FunctionType::Add;
                     }
                     '-' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = sub;
+                        s.function_type = FunctionType::Sub;
                     }
                     '*' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = mul;
+                        s.function_type = FunctionType::Mul;
                     }
                     '/' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = div;
+                        s.function_type = FunctionType::Div;
                     }
                     '^' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = pow;
+                        s.function_type = FunctionType::Pow;
                     }
                     '%' => {
                         s.s_type = Flags::TOK_INFIX;
                         s.function = fmod;
+                        s.function_type = FunctionType::Fmod;
                     }
                     '(' => s.s_type = Flags::TOK_OPEN,
                     ')' => s.s_type = Flags::TOK_CLOSE,
@@ -532,15 +491,12 @@ fn base(s: &mut State) -> Result<Expr> {
             ret.function = s.function;
 
             next_token(s).unwrap();
-            // todo: set parameters
         }
         Flags::TE_FUNCTION1 | Flags::TE_CLOSURE1 => {
             ret = new_expr(s.s_type, None);
             ret.function = s.function;
-            // todo: set parameters
             next_token(s).unwrap();
             ret.parameters.push(power(s).unwrap());
-            // todo: set parameters
         }
         Flags::TE_FUNCTION2
         | Flags::TE_CLOSURE2
@@ -558,7 +514,6 @@ fn base(s: &mut State) -> Result<Expr> {
 
             ret = new_expr(s.s_type, None);
             ret.function = s.function;
-            // todo: set parameters
             next_token(s).unwrap();
 
             if s.s_type != Flags::TOK_OPEN {
@@ -590,7 +545,6 @@ fn base(s: &mut State) -> Result<Expr> {
             }
         }
         _ => {
-            // todo: better error? Use NaN?
             ret = new_expr(Flags::TE_VARIABLE, None);
             s.s_type = Flags::TOK_ERROR;
             ret.value = 0.0;
@@ -603,10 +557,13 @@ fn base(s: &mut State) -> Result<Expr> {
 fn power(s: &mut State) -> Result<Expr> {
     let mut sign = 1;
 
-    while s.s_type == Flags::TOK_INFIX && (s.function == add || s.function == sub) {
-        if s.function == sub {
-            sign = -sign;
+    while s.s_type == Flags::TOK_INFIX {
+        match s.function_type {
+            FunctionType::Add => sign = 1,
+            FunctionType::Sub => sign = -1,
+            _ => continue,
         }
+
         next_token(s).unwrap();
     }
 
@@ -617,7 +574,7 @@ fn power(s: &mut State) -> Result<Expr> {
     } else {
         ret = new_expr(
             Flags::TE_FUNCTION1 | Flags::TE_FLAG_PURE,
-            Some(vec![base(s).unwrap().clone()]),
+            Some(vec![base(s).unwrap()]),
         );
         ret.function = neg;
     }
@@ -625,12 +582,10 @@ fn power(s: &mut State) -> Result<Expr> {
     Ok(ret)
 }
 
-// todo: ifdef TE_POW_FROM_RIGHT
 fn factor(s: &mut State) -> Result<Expr> {
     let mut ret = power(s).unwrap();
 
-    // todo: check functions here
-    while s.s_type == Flags::TOK_INFIX && s.function == pow {
+    while s.s_type == Flags::TOK_INFIX && s.function_type == FunctionType::Pow {
         let f = s.function;
         next_token(s).unwrap();
         ret = new_expr(
@@ -647,7 +602,10 @@ fn term(s: &mut State) -> Result<Expr> {
     let mut ret = factor(s).unwrap();
 
     while s.s_type == Flags::TOK_INFIX
-        && (s.function == mul || s.function == div || s.function == fmod)
+        && matches!(
+            s.function_type,
+            FunctionType::Mul | FunctionType::Div | FunctionType::Fmod
+        )
     {
         let f = s.function;
         next_token(s).unwrap();
@@ -664,7 +622,9 @@ fn term(s: &mut State) -> Result<Expr> {
 fn expr(s: &mut State) -> Result<Expr> {
     let mut ret = term(s).unwrap();
 
-    while s.s_type == Flags::TOK_INFIX && (s.function == add || s.function == sub) {
+    while s.s_type == Flags::TOK_INFIX
+        && matches!(s.function_type, FunctionType::Add | FunctionType::Sub)
+    {
         let f = s.function;
         next_token(s).unwrap();
         ret = new_expr(
@@ -710,7 +670,7 @@ fn optimize(n: &mut Expr) {
         }
 
         if known != 0 {
-            n.value = eval(&n);
+            n.value = eval(n);
             n.e_type = Flags::TE_CONSTANT;
         }
     }
